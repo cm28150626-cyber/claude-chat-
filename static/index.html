@@ -64,11 +64,15 @@ async function sendMsg() {
   var thinking = addMsg('claude thinking', '思考中...');
 
   try {
+    var controller = new AbortController();
+    var timeout = setTimeout(function(){ controller.abort(); }, 90000);
     var res = await fetch('/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: history })
+      body: JSON.stringify({ messages: history }),
+      signal: controller.signal
     });
+    clearTimeout(timeout);
     var data = await res.json();
     thinking.remove();
     if (data.reply) {
@@ -79,7 +83,11 @@ async function sendMsg() {
     }
   } catch (e) {
     thinking.remove();
-    addMsg('claude', '連線失敗，請稍後再試');
+    if (e.name === 'AbortError') {
+      addMsg('claude', '回應太慢，請再試一次（伺服器剛啟動需要等待）');
+    } else {
+      addMsg('claude', '連線失敗：' + e.message);
+    }
   }
   document.getElementById('send').disabled = false;
   input.focus();
